@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MicroStack · 显微多焦平面合成</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1>MicroStack</h1>
+  <div class="sub">显微多焦平面瓦片合成 · 证据不可变 · 版本可追溯 · 逐像素来源核对</div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="compositions" class="active">合成</button>
+  <button data-tab="evidence">原始证据</button>
+  <button data-tab="import">导入核对</button>
+</nav>
+
+<!-- ================= Compositions ================= -->
+<section id="tab-compositions" class="tab active">
+  <div class="toolbar">
+    <button id="btn-new">＋ 新建合成</button>
+    <button id="btn-demo">载入演示数据</button>
+    <select id="combo-compositions"></select>
+    <button id="btn-reload">刷新</button>
+  </div>
+
+  <div id="new-panel" class="panel hidden">
+    <h2>新建合成</h2>
+    <p class="hint">先在「原始证据」标签上传 PNG（或使用演示数据）。倍率、载台坐标、Z 高度可缺省——缺省会被明确标记为不可信，而不会被静默拉伸。</p>
+    <input id="new-name" placeholder="合成名称（可选）" />
+    <table id="new-frames" class="grid">
+      <thead><tr>
+        <th>证据</th><th>倍率</th><th>载台 X (µm)</th><th>X 单位</th>
+        <th>载台 Y (µm)</th><th>Y 单位</th><th>Z 高度 (µm)</th><th>采集时间</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="toolbar">
+      <button id="btn-add-frame-row">添加帧</button>
+      <button id="btn-create" class="primary">生成初始候选</button>
+      <button id="btn-cancel-new">取消</button>
+    </div>
+    <div id="new-error" class="error"></div>
+  </div>
+
+  <div id="cmp-panel" class="panel hidden">
+    <div class="cmp-head">
+      <div>
+        <h2 id="cmp-name"></h2>
+        <div id="cmp-meta" class="sub"></div>
+      </div>
+      <div>
+        <button id="btn-publish" class="primary">发布当前查看版本</button>
+        <button id="btn-export">导出当前版本 zip</button>
+      </div>
+    </div>
+
+    <div id="publish-error" class="error"></div>
+
+    <div class="cols">
+      <div class="canvas-col">
+        <div class="canvas-wrap">
+          <canvas id="cv-composite"></canvas>
+          <canvas id="cv-overlay"></canvas>
+          <canvas id="cv-tiles"></canvas>
+        </div>
+        <div class="layer-controls">
+          <label><input type="checkbox" id="layer-composite" checked /> 合成图</label>
+          <label><input type="checkbox" id="layer-overlay" checked /> 不可信/诊断层</label>
+          <label><input type="checkbox" id="layer-tiles" checked /> 瓦片网格</label>
+          <span class="legend">
+            <i class="sw" style="background:#5a5a5a"></i>无覆盖
+            <i class="sw" style="background:#b58a00"></i>对齐不足
+            <i class="sw" style="background:#2b7fb8"></i>边缘外推
+            <i class="sw" style="background:#c0392b"></i>倍率矛盾
+            <i class="sw" style="background:#8e44ad"></i>标定缺失
+            <i class="sw" style="background:#1e8449;border-color:#aaa"></i>已验证瓦片
+          </span>
+        </div>
+      </div>
+
+      <div class="side-col">
+        <h3>版本</h3>
+        <select id="combo-versions" size="6"></select>
+        <div id="version-meta" class="sub"></div>
+        <div class="toolbar wrap">
+          <button id="btn-new-candidate">基于此版本改选</button>
+          <button id="btn-cancel-version" title="放弃未发布候选，不会替换已发布版本">取消此候选</button>
+        </div>
+
+        <div id="merge-panel" class="panel nested hidden">
+          <h3>重新合并（两个浏览器冲突）</h3>
+          <p class="hint">服务器版本与你的改动作用于同一瓦片。请选择保留哪一侧的来源选择，然后基于服务器最新版本重新提交。</p>
+          <div id="conflict-list"></div>
+          <div class="toolbar">
+            <button id="btn-merge-submit" class="primary">按所选合并并提交</button>
+          </div>
+        </div>
+
+        <h3>帧与对齐诊断</h3>
+        <ul id="frame-list" class="frame-list"></ul>
+
+        <h3>瓦片 <span id="tile-title" class="sub"></span></h3>
+        <div id="tile-detail">
+          <p class="hint">点击画布上的瓦片查看每个来源的清晰度分数、改选来源或排除带尘点的帧。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Evidence ================= -->
+<section id="tab-evidence" class="tab">
+  <div class="toolbar">
+    <input type="file" id="ev-file" accept="image/png" />
+    <button id="btn-upload" class="primary">上传 PNG 原始证据</button>
+  </div>
+  <div id="ev-msg" class="sub"></div>
+  <table class="grid">
+    <thead><tr><th>证据 ID</th><th>原始文件名</th><th>尺寸</th><th>SHA-256</th><th>接收时间 (UTC)</th><th></th></tr></thead>
+    <tbody id="ev-rows"></tbody>
+  </table>
+</section>
+
+<!-- ================= Import ================= -->
+<section id="tab-import" class="tab">
+  <h2>导入并逐像素核对</h2>
+  <p class="hint">选择导出的 zip：系统不信任包内合成图，而是用包内原始证据 + transforms.json + 规则版本重算，再逐像素比对合成图、来源索引掩膜和诊断层。</p>
+  <div class="toolbar">
+    <input type="file" id="import-file" accept="application/zip" />
+    <button id="btn-import" class="primary">核对</button>
+  </div>
+  <pre id="import-report" class="report"></pre>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>

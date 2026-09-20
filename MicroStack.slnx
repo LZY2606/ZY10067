@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/MicroStack.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/Web/">
+    <Project Path="src/Web/MicroStack.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MicroStack.Tests/MicroStack.Tests.csproj" />
+  </Folder>
+</Solution>

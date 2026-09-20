@@ -34,3 +34,11 @@ coverage/
 .vite/
 .turbo/
 *.tsbuildinfo
+
+# --- .NET build artifacts ---
+bin/
+obj/
+*.user
+
+# --- MicroStack local data ---
+microstack-data/
