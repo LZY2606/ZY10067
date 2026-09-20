@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>显微焦平面合成台 MicroFocus</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <h1>显微焦平面合成台</h1>
+  <div class="meta"><span id="health">检查服务中…</span></div>
+</header>
+
+<div class="layout">
+  <aside id="jobPanel">
+    <h2>任务</h2>
+    <div class="row">
+      <input id="newJobName" placeholder="新任务名称">
+      <button id="btnNewJob">新建任务</button>
+    </div>
+    <ul id="jobList" class="joblist"></ul>
+
+    <section id="framesSection" hidden>
+      <h3>输入帧（原始证据）</h3>
+      <form id="uploadForm" class="upload">
+        <input type="file" name="file" accept=".pgm,.ppm" required>
+        <div class="grid2">
+          <label>倍率<input name="magnification" type="number" step="0.01" placeholder="如 20"></label>
+          <label>像素尺寸 μm/px<input name="pixelSizeUm" type="number" step="0.0001" placeholder="可空"></label>
+          <label>载台坐标单位
+            <select name="stageUnit">
+              <option value="">缺失（不可信）</option>
+              <option value="um">um</option>
+              <option value="mm">mm</option>
+              <option value="nm">nm</option>
+            </select>
+          </label>
+          <label>X<input name="stageX" type="number" step="any"></label>
+          <label>Y<input name="stageY" type="number" step="any"></label>
+          <label>Z μm<input name="zUm" type="number" step="any"></label>
+          <label>采集时间<input name="capturedAt" type="datetime-local"></label>
+          <label>角色
+            <select name="role"><option value="primary">常规帧</option><option value="reshoot">补拍帧</option></select>
+          </label>
+        </div>
+        <label class="full">尘点备注<input name="dustNote" placeholder="如：右上角有尘点"></label>
+        <button type="submit">接收帧（不可变存档）</button>
+      </form>
+      <ul id="frameList" class="framelist"></ul>
+    </section>
+  </aside>
+
+  <main id="mainPanel">
+    <div id="emptyHint" class="hint">从左侧选择或新建一个任务。</div>
+
+    <section id="compositeSection" hidden>
+      <div class="sectionhead">
+        <h2>候选合成</h2>
+        <div class="row">
+          <input id="newCompositeName" placeholder="合成名称">
+          <button id="btnNewComposite">新建合成</button>
+        </div>
+      </div>
+      <ul id="compositeList" class="compositelist"></ul>
+
+      <div id="compositeDetail" hidden>
+        <div class="statebar">
+          <div>状态：<b id="cmpState"></b> <span class="rev">rev=<span id="cmpRev"></span></span></div>
+          <div class="row">
+            <button id="btnProcess">生成/重试候选</button>
+            <button id="btnReprocess" class="secondary">只重算脏瓦片</button>
+            <button id="btnCancel" class="danger">中途取消</button>
+            <input id="publishLabel" placeholder="版本标签" style="width:9rem">
+            <button id="btnPublish" class="primary">发布为版本</button>
+          </div>
+        </div>
+        <p id="cmpInterruption" class="interruption" hidden></p>
+
+        <div class="cols">
+          <div class="panel">
+            <h3>对齐诊断</h3>
+            <ul id="diagList" class="diag"></ul>
+            <h3>参与帧与排除</h3>
+            <ul id="frameCheckList" class="checklist"></ul>
+          </div>
+          <div class="panel">
+            <h3>瓦片（全部验证通过才可发布）</h3>
+            <div class="row">
+              <span class="legend"><i class="sw" style="background:#00c800"></i>可信</span>
+              <span class="legend"><i class="sw" style="background:#ffc800"></i>单帧</span>
+              <span class="legend"><i class="sw" style="background:#ff8c00"></i>尺寸推断</span>
+              <span class="legend"><i class="sw" style="background:#ff0000"></i>倍率冲突</span>
+              <span class="legend"><i class="sw" style="background:#780000"></i>无覆盖</span>
+              <span class="legend"><i class="sw" style="background:#008cff"></i>手工改选</span>
+            </div>
+            <div id="tileGrid" class="tilegrid"></div>
+          </div>
+        </div>
+
+        <div class="panel" id="tileDetail" hidden>
+          <h3>瓦片 #<span id="tileIndexLabel"></span> 来源核对</h3>
+          <div class="tilepreviews">
+            <figure><figcaption>合成结果</figcaption><img id="tileImg" alt="tile composite"></figure>
+            <figure><figcaption>可信度叠加</figcaption><img id="tileTrustImg" alt="trust overlay"></figure>
+            <figure><figcaption>来源帧叠加</figcaption><img id="tileSourceImg" alt="source overlay"></figure>
+          </div>
+          <table id="tileScoreTable"></table>
+          <div class="row">
+            <button id="btnTileAuto" class="secondary">恢复自动选源</button>
+            <button id="btnTileForce" class="primary">改选为所选帧</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>已发布版本（不可变）</h3>
+          <ul id="versionList" class="versionlist"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="conflictModal" class="modal" hidden>
+  <div class="modalbox">
+    <h2>并发冲突</h2>
+    <p id="conflictMsg"></p>
+    <p>另一个浏览器已经基于同一旧版本提交了修改（当前 rev=<b id="conflictRev"></b>）。你可以放弃自己的改动重新加载，也可以查看服务器最新状态后把你的改选重新合并上去。</p>
+    <div class="row">
+      <button id="btnConflictReload" class="primary">放弃本地改动并刷新</button>
+      <button id="btnConflictMerge" class="secondary">在最新状态上重新合并（保留当前界面选择）</button>
+    </div>
+  </div>
+</div>
+
+<section id="versionModal" class="modal wide" hidden>
+  <div class="modalbox">
+    <div class="sectionhead">
+      <h2>版本 <span id="verTitle"></span></h2>
+      <button id="btnCloseVer">关闭</button>
+    </div>
+    <div class="tilepreviews">
+      <figure><figcaption>合成图</figcaption><img id="verImg" alt="version composite"></figure>
+      <figure><figcaption>可信度叠加</figcaption><img id="verTrustImg" alt="version trust"></figure>
+      <figure><figcaption>来源掩膜</figcaption><img id="verSourceImg" alt="version source"></figure>
+    </div>
+    <h3>规则版本与参数</h3>
+    <pre id="verParams"></pre>
+    <h3>输入指纹（同名重传不会替换）</h3>
+    <table id="verFingerprints"></table>
+    <h3>导出 / 回退 / 导入审计</h3>
+    <div class="row">
+      <a id="verExportLink" class="button" download>下载导出包 zip</a>
+      <button id="btnVerRepublish" class="secondary">用此版本输入重新发布新版本</button>
+      <button id="btnVerDraft" class="secondary">从此版本创建可编辑草稿</button>
+    </div>
+    <h3>导入逐像素审计</h3>
+    <form id="importForm" class="row">
+      <input type="file" name="file" accept=".zip" required>
+      <button type="submit">导入导出包并逐像素核对</button>
+    </form>
+    <ul id="importList" class="diag"></ul>
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
